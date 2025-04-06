@@ -1,0 +1,18 @@
+cluster_members:
+  site_1:
+    - shc1.lan
+    - shc2.lan
+  site_2:
+    - shc3.lan
+    - shc4.lan
+kvstore:
+  certificate_key_file: null
+  certificate_key_file_password: null
+  password: null
+  port: 8191
+  username: __system
+splunk:
+  password: null
+  port: 8089
+  username: null
+  verify: false
