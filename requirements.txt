@@ -1,0 +1,4 @@
+cryptography
+pymongo
+PyYAML
+requests
