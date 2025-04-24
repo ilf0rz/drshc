@@ -59,27 +59,6 @@ class SplunkRest:
     def _full_url(self, endpoint):
         return f"{self.base_url}/{endpoint.lstrip('/')}"
     
-    def _process_response(self, r, action_result):
-        # Process a json response
-        if 'json' in r.headers.get('Content-Type', ''):
-            return self._process_json_response(r, action_result)
-        
-        # process empty response 
-        if not r.text:
-            return self._process_empty_response(r, action_result)
-        
-        # everything else is actually an error at this point
-        success = False
-        http_code = r.status_code
-        
-        details = "Can't process response from server. Status Code: {0} Data from server: {1}".format(
-            r.status_code,
-            r.text.replace('{', '{{').replace('}', '}}')
-        )
-
-        return RetVal(success=success,http_code=http_code,details=details)
-
-
     def _make_rest_call(self, method='GET', endpoint='/', **kwargs):
         if not self.base_url:
             raise ValueError("Base URL must be provided")
