@@ -148,7 +148,7 @@ class SplunkRest:
         
         params = {'output_mode': 'json'}
         endpoint = '/services/shcluster/config/config'
-        data = {"mode": role, 'captain_uri': captain_uri, 'election': False}
+        data: Dict[str,Union[str,bool]] = {"mode": role, 'captain_uri': captain_uri, 'election': False}
         return self._make_rest_call(method='POST', endpoint=endpoint, data=data, params=params)
 
     def set_sh_captain(self, captain_uri: str) -> SplunkRestResponse:
@@ -160,5 +160,5 @@ class SplunkRest:
     def set_sh_dynamic_captain(self) -> SplunkRestResponse:
         params = {'output_mode': 'json'}
         endpoint = '/services/shcluster/config/config'
-        data = {'mgmt_uri': self.base_url, 'election': True}
+        data: Dict[str,Union[str,bool]] = {'mgmt_uri': self.base_url, 'election': True}
         return self._make_rest_call(method='POST', endpoint=endpoint, data=data, params=params)

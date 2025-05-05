@@ -6,7 +6,7 @@ import copy
 
 from rich.console import Console
 from rich.panel import Panel
-from typing import Dict, List, Tuple, Optional, Any, TypedDict, Set, Union, cast
+from typing import Dict, List, Tuple, Optional, Any, TypedDict, Set, cast
 
 from splunkrest import SplunkRest, SplunkRestResponse
 from splunkkv import SplunkKV
@@ -319,7 +319,12 @@ def test_action(config: ClusterConfig, console: Console) -> None:
     if shc_status.get('http_code') == 503:
         console.print("⚠️  [yellow]SHC API returned HTTP/503 - cluster has likely lost majority[/yellow]")
         console.print("💡  This means consistency validation will be limited to connection test and KV Store API")
-    
+
+    # Initialize these sets outside the conditional block to avoid typing errors
+    online_set: Set[str] = set()
+    sh_set: Set[str] = set()
+    kv_set: Set[str] = set()
+
     # Proceed with validation using available data
     if kv_members_online is not None:  # We at least need KV data
         # Prepare sets for comparison, safely
@@ -561,7 +566,8 @@ def recover_action(config: ClusterConfig, console: Console) -> None:
     sleep_seconds = 10 
     captain_found = False
     success = False
-    
+    captain_node = None 
+
     while attempt < max_attempts:
         console.print(f"💤  Sleeping {sleep_seconds}s to allow the replicaset to accept the new configuration...  ⏳")
         time.sleep(sleep_seconds)

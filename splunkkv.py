@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from pymongo.read_preferences import SecondaryPreferred
-from typing import Dict, Any, Optional, TypedDict, List, Union
+from typing import Dict, Any, Optional, TypedDict, List
 
 class KVRestResponse(TypedDict):
     success: bool

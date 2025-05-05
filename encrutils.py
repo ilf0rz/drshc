@@ -2,10 +2,9 @@ import os
 import base64
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from typing import Dict, Optional, List, Any, TypedDict, Union
+from typing import Dict, Optional, List, Any
 
-# More specific dictionary typing
-# TODO: use TypedDict
+# Generic Dict to handle config
 ConfigDict = Dict[str, Any]  
 
 def generate_or_load_key(key_file: str) -> Optional[bytes]:
