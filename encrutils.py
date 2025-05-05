@@ -2,9 +2,13 @@ import os
 import base64
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from typing import Dict
+from typing import Dict, Optional, List, Any, TypedDict, Union
 
-def generate_or_load_key(key_file: str) -> bytes:
+# More specific dictionary typing
+# TODO: use TypedDict
+ConfigDict = Dict[str, Any]  
+
+def generate_or_load_key(key_file: str) -> Optional[bytes]:
     """Generate and store a new encryption key if it doesn't exist already"""
     if os.path.exists(key_file):
         with open(key_file, 'rb') as file:
@@ -84,24 +88,32 @@ def decrypt_value(value: str, key: bytes) -> str:
     
     return plaintext.decode()
 
-def handle_config_encryption(config: Dict, key: bytes, sensitive_fields: list, original_config: Dict) -> Dict:
+def handle_config_encryption(config: ConfigDict, key: bytes, 
+                           sensitive_fields: List[str], 
+                           original_config: ConfigDict) -> ConfigDict:
     """Recursively process config to encrypt sensitive fields, but only if they existed in original file"""
-    encrypted_config = {}
+    encrypted_config: ConfigDict = {}
     
     for k, v in config.items():
         if isinstance(v, dict) and k in original_config and isinstance(original_config[k], dict):
+            # Recursively handle nested dictionaries
             encrypted_config[k] = handle_config_encryption(v, key, sensitive_fields, original_config[k])
         elif k in sensitive_fields and v and k in original_config and original_config[k]:
             # Only encrypt and save if the field was in the original config
-            encrypted_config[k] = encrypt_value(v, key)
+            # Add type checking to ensure v is a string before encrypting
+            if isinstance(v, str):
+                encrypted_config[k] = encrypt_value(v, key)
+            else:
+                # this should not happen as at the moment sensistive fields contain just strings
+                encrypted_config[k] = v
         else:
             encrypted_config[k] = v
             
     return encrypted_config
 
-def decrypt_config(config: Dict, key: bytes) -> Dict:
+def decrypt_config(config: ConfigDict, key: bytes) -> ConfigDict:
     """Recursively decrypt all encrypted values in the config"""
-    decrypted_config = {}
+    decrypted_config: ConfigDict = {}
     
     for k, v in config.items():
         if isinstance(v, dict):

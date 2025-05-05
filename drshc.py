@@ -104,7 +104,7 @@ def process_kvstore_status(console: Console, kv_status: Dict) -> Tuple[bool, Opt
     return True, kv_members_online, captain
 
 
-def load_config(config_file: str, console: Console, key_file: str = ".config.key") -> Dict:
+def load_config(config_file: str, console: Console, key_file: str = ".config.key") -> Optional[Dict]:
     """Load and validate configuration from YAML file, prompting for missing credentials"""
     try:
         # Generate or load encryption key
@@ -112,7 +112,7 @@ def load_config(config_file: str, console: Console, key_file: str = ".config.key
         
         if key is None:
             console.print(f"❌  [red]Error: unable to load the key. It seems tobe of incorrect size.[/red]")
-            return False
+            return None
         
         # Define which fields should be encrypted
         sensitive_fields = ['password', 'certificate_key_file_password']
@@ -128,7 +128,7 @@ def load_config(config_file: str, console: Console, key_file: str = ".config.key
         # Validate the loaded configuration
         if not original_config:
             console.print(f"❌  [red]Error: Configuration file '{config_file}' is empty[/red]")
-            return False
+            return None
         
         # Working config that will include prompted values
         config = copy.deepcopy(original_config)
@@ -142,14 +142,14 @@ def load_config(config_file: str, console: Console, key_file: str = ".config.key
                 config['splunk']['password'] = console.input("🔑  Enter [bold]Splunk password[/bold]: ", password=True)
         else:
             console.print(f"❌  [red]Error: Missing 'splunk' section in configuration[/red]")
-            return False
+            return None
 
         if 'kvstore' in config:
             if not config['kvstore'].get('certificate_key_file_password'):
                 config['kvstore']['certificate_key_file_password'] = console.input("🔑  Enter [bold]KV Store keyfile password[/bold]: ", password=True)         
         else:
             console.print(f"❌  [red]Error: Missing 'splunk' section in configuration[/red]")
-            return False      
+            return None      
           
         # Encrypt sensitive fields, but only if they existed in the original file
         encrypted_config = handle_config_encryption(file_config, key, sensitive_fields, original_config)
@@ -163,7 +163,7 @@ def load_config(config_file: str, console: Console, key_file: str = ".config.key
         
     except Exception as e:
         console.print(f"❌  [red]Error loading configuration: {str(e)}[/red]")
-        return False
+        return None
 
 def test_search_heads(splunk_config: Dict, all_members: List[str], console: Console) -> Tuple[List[str], List[str], List[str]]:
     """Test connectivity to all search heads and categorize them"""
@@ -212,7 +212,7 @@ def test_action(config: Dict, console: Console) -> None:
     
     if not all_members:
         console.print("❌ [red]No cluster members found in configuration[/red]")
-        return False
+        return None
 
     # Extract credentials and configurations
     splunk_config = config.get('splunk', {})
@@ -234,12 +234,12 @@ def test_action(config: Dict, console: Console) -> None:
     # Exit with error code if unexpected errors occurred
     if unexpected_members:
         console.print(f"💥  Received errors during test connection to Search Heads. Wait a few seconds and retry.")
-        return False
+        return None
     
     # If no online members, we can't proceed with additional tests
     if not online_members:
         console.print("❌ [red]No online members found, cannot proceed with status checks.[/red]")
-        return False
+        return None
     
     # Check if majority of members are online
     majority_status = len(online_members) > len(all_members) / 2
@@ -422,7 +422,7 @@ def recover_action(config: Dict, console: Console) -> None:
     
     if not all_members:
         console.print("❌ [red]No cluster members found in configuration[/red]")
-        return False
+        return None
 
     # # Extract credentials and configurations
     splunk_config = config.get('splunk', {})
@@ -441,12 +441,12 @@ def recover_action(config: Dict, console: Console) -> None:
     online_members, _, unexpected_members = test_search_heads(splunk_config, all_members, console)
     if unexpected_members:
         console.print(f"💥  Received errors during test connection to Search Heads. Wait few seconds and retry. SH: [bold red]{', '.join(unexpected_members)}[/bold red]")
-        return False
+        return None
 
     # If no online members, we can't proceed with additional tests
     if not online_members:
         console.print("❌ [red]No online members found, cannot proceed with status checks.[/red]")
-        return False
+        return None
     
     # Split the list: designate the first as captain (👑) and the rest as members (👥)
     captain = online_members[0]
@@ -462,7 +462,7 @@ def recover_action(config: Dict, console: Console) -> None:
         if status['http_code'] == 200:
             console.print("⚠️  Cluster appears to be [bold]online[/bold] even if has lost its majority of members.")
             process_shc_status(console=console, shc_status=status)
-            return False
+            return None
         if status['http_code'] == 503:
             console.print(f"⚠️  Got status HTTP/503 from {captain_uri} confirming cluster has lost majority.")
 
@@ -470,7 +470,7 @@ def recover_action(config: Dict, console: Console) -> None:
     captain_result = splunk_captain.set_sh_captain(captain_uri)
     if not captain_result['success'] or captain_result['http_code'] > 299:
         console.print(f"  🚫  Failure setting static captain at {captain_uri}")
-        return False
+        return None
         
     # Process each remaining member as a static member
     for member in members:
@@ -481,7 +481,7 @@ def recover_action(config: Dict, console: Console) -> None:
         
         if not member_result['success']:
             console.print("  🚫  Failure setting static member")
-            return False
+            return None
     
     max_attempts = 6
     attempt = 0
@@ -500,13 +500,13 @@ def recover_action(config: Dict, console: Console) -> None:
         attempt += 1
     
     if not success:
-        return False
+        return None
     
     if set(sh_members) == set(online_members):
         console.print(f"✅  SHC status returned all online hosts as part of the cluster: [yellow]{', '.join(online_members)}[/yellow]")
     else:
         console.print(f"🚫  SHC status is not consistent with online members. Online members: [bold]{', '.join(online_members)}[/bold]. Cluster online: [bold]{', '.join(sh_members)}[/bold]")
-        return False
+        return None
         
     # Test KV store connectivity
     kvstore = SplunkKV(
@@ -522,7 +522,7 @@ def recover_action(config: Dict, console: Console) -> None:
         console.print("✅  Direct KV Store connection successful")
     else:
         console.print(f"❌  Direct KV Store connection failed: {kv_result.get('details', 'Unknown error')}")
-        return False
+        return None
     
     console.print("✅  Reconfiguring KVStore")
     status = kvstore.reconfigure_replicaset()
@@ -544,7 +544,7 @@ def recover_action(config: Dict, console: Console) -> None:
         attempt += 1
     
     if not success:
-        return False
+        return None
         
     if captain:
         console.print(f"✅  KVstore captain has been detected: [yellow]{captain}[/yellow]")
@@ -565,7 +565,7 @@ def rollback_action(config: Dict, console: Console) -> None:
     
     if not all_members:
         console.print("❌ [red]No cluster members found in configuration[/red]")
-        return False
+        return None
 
     # # Extract credentials and configurations
     splunk_config = config.get('splunk', {})
@@ -584,12 +584,12 @@ def rollback_action(config: Dict, console: Console) -> None:
         console.print(f"   Offline members: [yellow]{', '.join(offline_members) if offline_members else 'None'}[/yellow]")
         console.print(f"   Error members: [yellow]{', '.join(unexpected_members) if unexpected_members else 'None'}[/yellow]")
         console.print("    Ensure all members are online before attempting rollback.")
-        return False
+        return None
 
     # If no online members, we can't proceed with additional tests
     if not online_members:
         console.print("❌  [red]No online members found, cannot proceed with status checks.[/red]")
-        return False
+        return None
         
     console.print("✅  [green]All cluster members are online. Proceeding with rollback.[/green]")
     
@@ -603,7 +603,7 @@ def rollback_action(config: Dict, console: Console) -> None:
     shc_content = get_content(shc_status)
     if not shc_content:
         console.print("❌ [red]Failed to get SHC status. Cannot determine cluster state.[/red]")
-        return False
+        return None
     
     captain_info = shc_content.get("captain", {})
     is_dynamic_captain = captain_info.get('dynamic_captain', True)
@@ -612,7 +612,7 @@ def rollback_action(config: Dict, console: Console) -> None:
         console.print("⚠️ [yellow]Cluster is already using dynamic captain mode. No rollback needed.[/yellow]")
         # Run a quick test to show cluster status
         test_action(config, console)
-        return False
+        return None
     
     # If we're here, we need to perform the rollback by cycling through all members
     console.print("🔄 Switching all cluster members to dynamic captain mode...")

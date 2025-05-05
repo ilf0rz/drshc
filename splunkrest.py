@@ -2,34 +2,48 @@ import requests
 from requests.auth import HTTPBasicAuth
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-requests.packages.urllib3.disable_warnings() 
+from typing import Dict, Any, Tuple, Optional, Union, Literal, TypedDict
+
+requests.packages.urllib3.disable_warnings()  # type: ignore
+
+class SplunkRestResponse(TypedDict):
+    success: bool
+    http_code: Optional[int]
+    exception: Optional[str]
+    details: Optional[str]
+    response: Optional[Dict[str, Any]]
+
 class RetVal():
-    def __new__(cls, success, http_code=None, exception=None, details=None, response=None):
-        status = {'success': success,
-                  'http_code': http_code,
-                  'exception': exception,
-                  'details': details,
-                  'response': response}
+    def __new__(cls, success: bool, http_code: Optional[int] = None, 
+                exception: Optional[str] = None, details: Optional[str] = None, 
+                response: Optional[Dict[str, Any]] = None) -> SplunkRestResponse:
+        status: SplunkRestResponse = {
+            'success': success,
+            'http_code': http_code,
+            'exception': exception,
+            'details': details,
+            'response': response
+        }
         return status
     
 class SplunkRest:
     def __init__(
         self,
-        base_url,
-        auth=None,                          # Tuple (user, pass) for Basic Auth
-        headers=None,                       # Optional default headers
-        timeout=5,                          # Timeout in seconds or (connect, read) tuple
-        verify=False,                       # SSL verification (can also be path to cert)
-        retries=3,                          # Retry count
-        backoff_factor=0.3,                 # Retry backoff
-        status_forcelist=(500, 502, 504),   # Retry only on these codes
-        proxies=None                        # Optional proxy dict
-    ):
+        base_url: str,
+        auth: Optional[Tuple[str, str]] = None,       # Tuple (user, pass) for Basic Auth
+        headers: Optional[Dict[str, str]] = None,     # Optional default headers
+        timeout: Union[int, Tuple[int, int]] = 5,     # Timeout in seconds or (connect, read) tuple
+        verify: Union[bool, str] = False,             # SSL verification (can also be path to cert)
+        retries: int = 3,                             # Retry count
+        backoff_factor: float = 0.3,                  # Retry backoff
+        status_forcelist: Tuple[int, ...] = (500, 502, 504),  # Retry only on these codes
+        proxies: Optional[Dict[str, str]] = None      # Optional proxy dict
+    ) -> None:
         
         self.base_url = base_url.rstrip("/")
         
         # Store session-level request options
-        self._default_request_opts = {
+        self._default_request_opts: Dict[str, Any] = {
             "timeout": timeout,
             "verify": verify,
             "proxies": proxies
@@ -56,10 +70,10 @@ class SplunkRest:
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
     
-    def _full_url(self, endpoint):
+    def _full_url(self, endpoint: str) -> str:
         return f"{self.base_url}/{endpoint.lstrip('/')}"
     
-    def _make_rest_call(self, method='GET', endpoint='/', **kwargs):
+    def _make_rest_call(self, method: str = 'GET', endpoint: str = '/', **kwargs: Any) -> SplunkRestResponse:
         if not self.base_url:
             raise ValueError("Base URL must be provided")
         
@@ -113,37 +127,37 @@ class SplunkRest:
         
         return RetVal(success=success, http_code=http_code, exception=exception, details=details, response=response)
 
-    def test_connectivty(self):
+    def test_connectivty(self) -> SplunkRestResponse:
         params = {'output_mode': 'json'}
         endpoint = '/services/server/info'
         return self._make_rest_call(method='GET', endpoint=endpoint, params=params)
 
-    def shc_status(self):
+    def shc_status(self) -> SplunkRestResponse:
         params = {'output_mode': 'json'}
         endpoint = '/services/shcluster/status'
         return self._make_rest_call(method='GET', endpoint=endpoint, params=params)
     
-    def kv_status(self):
+    def kv_status(self) -> SplunkRestResponse:
         params = {'output_mode': 'json'}
         endpoint = '/services/kvstore/status'
         return self._make_rest_call(method='GET', endpoint=endpoint, params=params)
     
-    def _set_sh_role(self, captain_uri, role):
-        if role not in ['member','captain']:
-            raise "Role per _set_sh_role should be either member or captain."
+    def _set_sh_role(self, captain_uri: str, role: Literal['member', 'captain']) -> SplunkRestResponse:
+        if role not in ['member', 'captain']:
+            raise ValueError("Role per _set_sh_role should be either member or captain.")
         
         params = {'output_mode': 'json'}
         endpoint = '/services/shcluster/config/config'
-        data={"mode": role, 'captain_uri': captain_uri, 'election': False}
+        data = {"mode": role, 'captain_uri': captain_uri, 'election': False}
         return self._make_rest_call(method='POST', endpoint=endpoint, data=data, params=params)
 
-    def set_sh_captain(self, captain_uri):
+    def set_sh_captain(self, captain_uri: str) -> SplunkRestResponse:
         return self._set_sh_role(captain_uri=captain_uri, role='captain')
 
-    def set_sh_member(self, captain_uri):
+    def set_sh_member(self, captain_uri: str) -> SplunkRestResponse:
         return self._set_sh_role(captain_uri=captain_uri, role='member')
     
-    def set_sh_dynamic_captain(self):
+    def set_sh_dynamic_captain(self) -> SplunkRestResponse:
         params = {'output_mode': 'json'}
         endpoint = '/services/shcluster/config/config'
         data = {'mgmt_uri': self.base_url, 'election': True}
